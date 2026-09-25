@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heavycli"
+version = "1.0.0"
+description = "Demo CLI with a slow import, boosted with argcomplete-booster"
+requires-python = ">=3.9"
+dependencies = ["argcomplete>=3.3", "argcomplete-booster"]
+
+[project.scripts]
+# Boosted entry point: a tiny module that does not import the heavy package.
+heavycli = "heavycli_entry:main"
+# Same CLI without the booster, for benchmarking.
+heavycli-plain = "heavycli.cli:main"
+
+[tool.setuptools]
+py-modules = ["heavycli_entry"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

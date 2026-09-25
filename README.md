@@ -12,6 +12,8 @@ It falls back to your real CLI when code has to run (dynamic completers), and it
 | 100 commands | 562 ms | **34 ms** |
 | 12,000 commands | 3,220 ms | **34 ms** |
 
+![How a TAB press is served](docs/overview.png)
+
 See [DESIGN.md](DESIGN.md) for the full design, alternatives and measurements.
 
 ## For CLI maintainers

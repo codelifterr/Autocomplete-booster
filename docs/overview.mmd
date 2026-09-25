@@ -1,0 +1,16 @@
+%%{init: {"flowchart": {"wrappingWidth": 260, "nodeSpacing": 40, "rankSpacing": 55}}}%%
+flowchart LR
+    T(["TAB pressed<br/>bash runs <b>mycli</b>"]) --> B["Booster wrapper<br/><i>imports only os, sys</i>"]
+    B --> D{"Spec saved and<br/>up to date?"}
+    D -- "yes" --> F["<b>Fast path</b><br/>rebuild parser from spec<br/>real argcomplete answers<br/><b>~35 ms</b>, CLI not imported"]
+    D -- "no<br/>(first run, upgrade,<br/>missing spec)" --> S["<b>Slow path</b><br/>same as today:<br/>import CLI, answer"]
+    F -- "argument needs<br/>live code" --> S
+    S --> W["Background process<br/>saves the new spec"]
+    W -. "next TAB" .-> F
+
+    classDef fast fill:#d5eee9,stroke:#0b7a6a,stroke-width:2px,color:#0f2b27
+    classDef slow fill:#f4e0d6,stroke:#b4552f,stroke-width:2px,color:#3a1f12
+    classDef neutral fill:#eef1f4,stroke:#8a96a3,color:#18202b
+    class F fast
+    class S,W slow
+    class T,B,D neutral

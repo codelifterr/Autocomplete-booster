@@ -19,15 +19,15 @@ implementation: <https://github.com/codelifterr/Autocomplete-booster>.
 
 ## 1. The problem
 
-When the user presses TAB, bash runs the CLI again with a few environment variables set:
+When the user presses TAB, bash starts the CLI again (with `_ARGCOMPLETE=1` and the typed line in
+`COMP_LINE`) and waits for it to print the completions. Where that time goes:
 
-```
-TAB ─▶ bash starts `mycli` (with _ARGCOMPLETE=1, COMP_LINE="mycli dep")
-        ├─ start Python interpreter ................. ~12 ms
-        ├─ `from mycli.cli import main` ............. 100 ms – 1 s+   ◀ SDK, requests, plugins
-        ├─ build the ArgumentParser ................. 1 ms – 2 s      ◀ grows with command count
-        └─ argcomplete prints completions, exits .... ~2 ms
-```
+| Step on every TAB press | Typical time |
+|---|---|
+| Start the Python interpreter | ~12 ms |
+| `from mycli.cli import main`: SDK, `requests`, plugins | **100 ms – 1 s+** |
+| Build the `ArgumentParser` (grows with the number of commands) | **1 ms – 3 s** |
+| argcomplete computes and prints the completions | ~2 ms |
 
 `import requests` alone costs ~100 ms, and users notice any delay above ~100 ms. Measured with
 plain argcomplete (CLI import simulated at 500 ms):
@@ -52,26 +52,26 @@ plain argcomplete (CLI import simulated at 500 ms):
 ### 3.1 Overview
 
 The CLI's console script points at a tiny wrapper from the booster instead of the real `main`. The
-wrapper imports only `os` and `sys`, so it costs nothing on normal runs.
+wrapper imports only `os` and `sys`, so normal (non-TAB) runs go straight to the real CLI at no
+extra cost. On a TAB press:
 
-```
-      mycli (console script) ─▶ booster wrapper
-                                     │
-       not completing ◀──────────────┼──────────────▶ completing (TAB)
-             │                                             │
- import CLI, run main()                         spec saved and up to date?
-(unchanged, < 1 ms extra)                          │                 │
-                                                  yes               no
-                                                   │                 │
-                                     ┌─────────────▼───┐   ┌─────────▼──────────┐
-                                     │ FAST PATH       │   │ SLOW PATH          │
-                                     │ rebuild parser  │   │ = today: import    │
-                                     │ from spec; real │   │ CLI, complete;     │
-                                     │ argcomplete     │   │ then save the spec │
-                                     │ answers ~35 ms  │   │ in the background  │
-                                     └───────┬─────────┘   └────────────────────┘
-                                             │ argument needs live code
-                                             └──▶ hand over to the slow path
+```mermaid
+%%{init: {"flowchart": {"wrappingWidth": 260, "nodeSpacing": 40, "rankSpacing": 55}}}%%
+flowchart LR
+    T(["TAB pressed<br/>bash runs <b>mycli</b>"]) --> B["Booster wrapper<br/><i>imports only os, sys</i>"]
+    B --> D{"Spec saved and<br/>up to date?"}
+    D -- "yes" --> F["<b>Fast path</b><br/>rebuild parser from spec<br/>real argcomplete answers<br/><b>~35 ms</b>, CLI not imported"]
+    D -- "no<br/>(first run, upgrade,<br/>missing spec)" --> S["<b>Slow path</b><br/>same as today:<br/>import CLI, answer"]
+    F -- "argument needs<br/>live code" --> S
+    S --> W["Background process<br/>saves the new spec"]
+    W -. "next TAB" .-> F
+
+    classDef fast fill:#d5eee9,stroke:#0b7a6a,stroke-width:2px,color:#0f2b27
+    classDef slow fill:#f4e0d6,stroke:#b4552f,stroke-width:2px,color:#3a1f12
+    classDef neutral fill:#eef1f4,stroke:#8a96a3,color:#18202b
+    class F fast
+    class S,W slow
+    class T,B,D neutral
 ```
 
 ### 3.2 The spec
